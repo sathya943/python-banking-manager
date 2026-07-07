@@ -1,52 +1,40 @@
-from app.models.account import Account, SavingsAccount, CurrentAccount
-from app.utils.exceptions import InsufficientFundsError, BankingException
+from app.models.account import SavingsAccount, CurrentAccount
+from app.decorators.security import CURRENT_SESSION
+from app.utils.exceptions import BankingException
 
-class BankServiceMesh:
-    """Handles system-wide workflows including polymorphic inter-account transfers."""
-    
-    @staticmethod
-    def transfer(sender: Account, receiver: Account, amount: float) -> None:
-        """
-        Polymorphically transfers funds between ANY two abstract account types.
-        Uses Type Hints to ensure proper structural interaction.
-        """
-        print(f"Initiating transfer: ${amount:.2f} from {sender.account_number} to {receiver.account_number}...")
-        
-        # If withdraw fails via exception, execution halts automatically, protecting data integrity
-        sender.withdraw(amount)
-        receiver.deposit(amount)
-        print("Transfer completed successfully.")
+def run_stage_3_simulation() -> None:
+    print("--- Stage 3: Decorators, Security & Audit Logs ---")
 
+    # 1. Initialize core system artifacts
+    savings = SavingsAccount("SAV-777", 2000.0)
+    current = CurrentAccount("CUR-888", 1500.0)
 
-def run_stage_2_simulation() -> None:
-    print("--- Stage 2: Polymorphism, Exceptions & Dunder Methods ---")
-    
-    # 1. Instantiate Accounts
-    sa = SavingsAccount("SAV-999", 1200.0)
-    ca = CurrentAccount("CUR-888", 300.0)
+    # 2. Test standard operational flow under validated user context
+    print(f"\nActive Session User: {CURRENT_SESSION['username']} | Role: {CURRENT_SESSION['role']}")
+    savings.deposit(500.0)
+    savings.withdraw(300.0)
 
-    # Testing Dunder Methods (__str__ / __repr__)
-    print(f"\nCreated Account (str): {sa}")
-    print(f"Created Account (repr): {repr(ca)}")
-
-    # Testing Dunder Equality (__eq__)
-    duplicate_check_acc = CurrentAccount("CUR-888", 5000.0)
-    print(f"Is target account identical to duplicate account object? {ca == duplicate_check_acc}")
-
-    print("\n--- Executing Safe Polymorphic Transfer ---")
-    # Transfer from Savings -> Current (Works perfectly)
-    BankServiceMesh.transfer(sender=sa, receiver=ca, amount=400.0)
-    print(f"Updated Sender: {sa}")
-    print(f"Updated Receiver: {ca}")
-
-    print("\n--- Executing Violating Polymorphic Transfer ---")
-    # Transfer from Current -> Savings exceeding overdraft bounds (Should raise customized error)
+    # 3. Test operational constraint blocking (Current account requires Admin clearance)
+    print("\nAttempting unauthorized action on Current Account...")
     try:
-        BankServiceMesh.transfer(sender=ca, receiver=sa, amount=1500.0)
-    except InsufficientFundsError as err:
-        print(f"Caught Domain Specific Exception Alert 🚨 -> {err}")
-    except BankingException as err:
-        print(f"Caught global banking exception: {err}")
+        current.withdraw(100.0)
+    except PermissionError as err:
+        print(f"Security Shield Handled Alert 🛡️ -> {err}")
+
+    # 4. Escalate privileges to simulate an Admin login bypass
+    print("\nEscalating session profile state to 'Admin'...")
+    CURRENT_SESSION["role"] = "Admin"
+    print(f"Updated Session User: {CURRENT_SESSION['username']} | Role: {CURRENT_SESSION['role']}")
+
+    # Re-attempt the transaction
+    current.withdraw(100.0)
+    
+    # 5. Simulate failed transaction tracking to verify the audit ledger caught it
+    print("\nSimulating a failing transaction under valid auth permissions...")
+    try:
+        savings.withdraw(5000.0) # Triggers InsufficientFundsError
+    except BankingException:
+        pass # Ignored here since the auditor printed the trace stack trace output
 
 if __name__ == "__main__":
-    run_stage_2_simulation()
+    run_stage_3_simulation()
