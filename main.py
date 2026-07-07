@@ -1,40 +1,40 @@
-from app.models.account import SavingsAccount, CurrentAccount, Account
-from app.models.customer import Customer
+from app.models.account import SavingsAccount, CurrentAccount
+from app.decorators.security import CURRENT_SESSION
+from app.utils.exceptions import BankingException
 
-def run_banking_simulation() -> None:
-    print("--- Stage 1: Abstraction & OOP Simulation ---")
+def run_stage_3_simulation() -> None:
+    print("--- Stage 3: Decorators, Security & Audit Logs ---")
 
-    # 1. Verify Abstraction prevents direct instantiation of the base class
+    # 1. Initialize core system artifacts
+    savings = SavingsAccount("SAV-777", 2000.0)
+    current = CurrentAccount("CUR-888", 1500.0)
+
+    # 2. Test standard operational flow under validated user context
+    print(f"\nActive Session User: {CURRENT_SESSION['username']} | Role: {CURRENT_SESSION['role']}")
+    savings.deposit(500.0)
+    savings.withdraw(300.0)
+
+    # 3. Test operational constraint blocking (Current account requires Admin clearance)
+    print("\nAttempting unauthorized action on Current Account...")
     try:
-        abstract_acc = Account("ACC-000", 100.0)  # type: ignore
-    except TypeError as e:
-        print(f"Abstraction Working! Blocked instantiating Base Account: {e}\n")
+        current.withdraw(100.0)
+    except PermissionError as err:
+        print(f"Security Shield Handled Alert 🛡️ -> {err}")
 
-    # 2. Setup Customer and Concrete Accounts
-    customer = Customer(customer_id="CUST-777", name="Esarapu Praveen Kumar")
+    # 4. Escalate privileges to simulate an Admin login bypass
+    print("\nEscalating session profile state to 'Admin'...")
+    CURRENT_SESSION["role"] = "Admin"
+    print(f"Updated Session User: {CURRENT_SESSION['username']} | Role: {CURRENT_SESSION['role']}")
+
+    # Re-attempt the transaction
+    current.withdraw(100.0)
     
-    # Savings requires maintaining a $500 minimum balance
-    savings = SavingsAccount(account_number="SAV-101", initial_balance=1000.0, minimum_balance=500.0)
-    # Current allows a $1000 overdraft limit
-    current = CurrentAccount(account_number="CUR-202", initial_balance=200.0, overdraft_limit=1000.0)
-
-    customer.add_account(savings)
-    customer.add_account(current)
-
-    print(f"Customer {customer.name} total balance: ${customer.get_total_balance():.2f}")
-
-    # 3. Test customized abstraction behaviors
-    print("\nExecuting specialized withdrawal rules:")
-    
-    # Savings test (Should fail: trying to pull balance below $500)
-    savings_success = savings.withdraw(600.0)
-    print(f"Savings withdrawal of $600 (Leaves $400, below min $500): Success = {savings_success}")
-    print(f"Savings Balance: ${savings.balance:.2f}")
-
-    # Current test (Should pass: utilizes allowed overdraft)
-    current_success = current.withdraw(500.0)
-    print(f"Current withdrawal of $500 (Overdrafts into -$300): Success = {current_success}")
-    print(f"Current Balance: ${current.balance:.2f}")
+    # 5. Simulate failed transaction tracking to verify the audit ledger caught it
+    print("\nSimulating a failing transaction under valid auth permissions...")
+    try:
+        savings.withdraw(5000.0) # Triggers InsufficientFundsError
+    except BankingException:
+        pass # Ignored here since the auditor printed the trace stack trace output
 
 if __name__ == "__main__":
-    run_banking_simulation()
+    run_stage_3_simulation()
