@@ -1,4 +1,4 @@
-def main():
+gdef main():
     print("Hello from python-banking-manager!")
 
 
